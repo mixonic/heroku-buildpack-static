@@ -92,16 +92,29 @@ http {
 
   # fallback proxy named match
   <% proxies.each do |location, hash| %>
-    set $<%= hash['name'] %> <%= hash['host'] %>;
-    location @<%= location %> {
-      rewrite ^<%= location %>/?(.*)$ <%= hash['path'] %>/$1 break;
-      # can reuse variable set above
-      proxy_pass $<%= hash['name'] %>;
-      proxy_ssl_server_name on;
-      <% %w(http https).each do |scheme| %>
-      proxy_redirect <%= hash["redirect_#{scheme}"] %> <%= location %>;
-      <% end %>
-    }
+    # hack to only use this version for api
+    <% if location =~ /api/ %>
+      set $<%= hash['name'] %> <%= hash['host'] %>/<%= hash['path'] %>;
+      location @<%= location %> {
+        proxy_pass $<%= hash['name'] %>;
+        proxy_ssl_server_name on;
+        <% %w(http https).each do |scheme| %>
+        proxy_redirect <%= hash["redirect_#{scheme}"] %> <%= location %>;
+        <% end %>
+      }
+    <% else %>
+      # the upstream proxy implementation, used for statusboard
+      set $<%= hash['name'] %> <%= hash['host'] %>;
+      location @<%= location %> {
+        rewrite ^<%= location %>/?(.*)$ <%= hash['path'] %>/$1 break;
+        # can reuse variable set above
+        proxy_pass $<%= hash['name'] %>;
+        proxy_ssl_server_name on;
+        <% %w(http https).each do |scheme| %>
+        proxy_redirect <%= hash["redirect_#{scheme}"] %> <%= location %>;
+        <% end %>
+      }
+    <% end %>
   <% end %>
 
   # fallback redirects named match
